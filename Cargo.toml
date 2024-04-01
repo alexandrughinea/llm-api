@@ -1,0 +1,22 @@
+[package]
+name = "llm-api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = { version = "4", optional = true, features = ["openssl"] }
+actix-web-httpauth = { version = "0.8.1" }
+actix-cors = { version = "0.7.0" }
+tokio = { version = "1", features = ["full"] }
+dotenvs = "0.1.0"
+serde_json = "1.0.113"
+serde = { version = "1.0", features = ["derive"] }
+rand = { version = "0.8.5" }
+openssl = "0.10.64"
+llm = { git = "https://github.com/rustformers/llm.git" }
+
+[features]
+default = [ "server"]
+server = ["actix-web"]
