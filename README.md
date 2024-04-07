@@ -31,14 +31,14 @@ Eg:
 
 ### API server
 
-1. Run:
+Run server:
 
 ```sh
     cargo run --release
 ```
 
-2. Test:
+Test prompt generation:
 ```sh
-    curl -k -X POST -H "Content-Type: application/json" -d '{"message": "Hello world!"}' https://localhost:8080/prompt   
+    curl -k -X POST -H "Content-Type: application/json" -d '{"prompt": "Why is the sky blue?"}' https://localhost:8080/api/generate   
 ```
 
