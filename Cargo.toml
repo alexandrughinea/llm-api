@@ -15,7 +15,7 @@ serde_json = "1.0.113"
 serde = { version = "1.0", features = ["derive"] }
 rand = { version = "0.8.5" }
 openssl = "0.10.64"
-llm = { git = "https://github.com/rustformers/llm.git" }
+llm = {version = "0.1.1"}
 
 [features]
 default = [ "server"]

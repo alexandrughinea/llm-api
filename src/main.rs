@@ -1,8 +1,8 @@
 use std::{convert::Infallible, io::Write, path::PathBuf};
 
 use actix_cors::Cors;
-use actix_web::{App, http, HttpResponse, HttpServer, middleware, Responder, web};
 use actix_web::web::Json;
+use actix_web::{http, middleware, web, App, HttpResponse, HttpServer, Responder};
 use llm::Model;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde::{Deserialize, Serialize};
@@ -46,29 +46,20 @@ fn run_inference_session(config: &Config, model: &Box<dyn Model>, prompt: String
         // Input:
         &mut rand::thread_rng(),
         &llm::InferenceRequest {
-            prompt: (&prompt).into(),
-            parameters: &llm::InferenceParameters::default(),
+            prompt: (&*prompt).into(),
+            parameters: Option::from(&llm::InferenceParameters::default()),
             play_back_previous_tokens: false,
             maximum_token_count: Some(config.llm_inference_max_token_count),
         },
         // Output:
         &mut Default::default(),
-        |response| match response {
-            llm::InferenceResponse::PromptToken(token) => {
-                prompt_tokens.push_str(&token);
+        |response| {
+            print!("{response}");
+            std::io::stdout().flush().unwrap();
 
-                Ok(llm::InferenceFeedback::Continue)
-            }
-
-            llm::InferenceResponse::InferredToken(token) => {
-                result_tokens.push_str(&token);
-
-                Ok(llm::InferenceFeedback::Continue)
-            }
-            _ => Ok(llm::InferenceFeedback::Continue),
+            Ok(())
         },
     );
-
 
     println!(
         "Prompt: {}\nChar size: {}\nInference result: {}\nInference char size: {}",
@@ -87,36 +78,42 @@ fn run_inference_session(config: &Config, model: &Box<dyn Model>, prompt: String
 pub async fn generate_handler(
     data: web::Data<AppState>,
     body: Json<GenerateRequest>,
-) -> impl Responder {
+) -> HttpResponse {
     let result = run_inference_session(&data.config, &data.model, body.prompt.clone());
 
     HttpResponse::Ok().body(result)
 }
 
-pub async fn health_handler() -> impl Responder {
-    "OK!"
+pub async fn health_handler() -> HttpResponse {
+    HttpResponse::Ok().finish()
 }
 
 #[actix_web::main]
 #[cfg(feature = "server")]
 async fn main() -> std::io::Result<()> {
     let config: Config = Config::init();
-    let tokenizer_source = llm::TokenizerSource::Embedded;
     let model_path = PathBuf::from(&config.llm_model);
     let now = std::time::Instant::now();
+    let model_architecture = match_model_architecture(&config.llm_model_architecture)
+        .unwrap_or_else(|| {
+            panic!(
+                "Failed to find model architecture {} for model: {}.\n",
+                config.llm_model_architecture, &config.llm_model
+            );
+        });
+
     let model = llm::load_dynamic(
-        match_model_architecture(&config.llm_model_architecture),
+        model_architecture,
         &model_path,
-        tokenizer_source,
         Default::default(),
         llm::load_progress_callback_stdout,
     )
-        .unwrap_or_else(|err| {
-            panic!(
-                "Failed to load {} model from {:?}: {}",
-                config.llm_model, model_path, err
-            );
-        });
+    .unwrap_or_else(|err| {
+        panic!(
+            "Failed to load {} model from {:?}: {}",
+            config.llm_model, model_path, err
+        );
+    });
 
     println!(
         "{} model ({}) has been started!\nElapsed: {}ms",
@@ -165,10 +162,7 @@ async fn main() -> std::io::Result<()> {
                     .max_age(config.max_age as usize),
             )
             .route("/", web::get().to(server_info_handler))
-            .service(
-                web::scope("/api")
-                    .route("/generate", web::post().to(generate_handler))
-            )
+            .service(web::scope("/api").route("/generate", web::post().to(generate_handler)))
             .route("/health", web::get().to(health_handler))
     })
     .bind_openssl(complete_address, ssl_builder)?
