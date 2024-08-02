@@ -6,8 +6,6 @@ pub struct Config {
     pub server_port: u16,
     pub server_request_timeout: u64,
     pub machine_command_timeout: u64,
-    pub network_public_ip_v4_services: (String, String),
-    pub network_public_ip_v6_services: Option<(String, String)>,
 
     pub max_connections: u32,
     pub database_url: String,
@@ -55,25 +53,6 @@ impl Config {
             .parse::<u64>()
             .unwrap();
 
-        let binding = env::var("NETWORK_PUBLIC_IP_V4_SERVICES")
-            .expect("NETWORK_PUBLIC_IP_V4_SERVICES must be specified")
-            .parse::<String>()
-            .unwrap();
-        let mut network_public_ip_v4_services_parts = binding.split(',');
-
-        let network_public_ip_v4_services_main = network_public_ip_v4_services_parts
-            .next()
-            .expect("Main IPV4 service address not found")
-            .to_string();
-        let network_public_ip_v4_services_fallback = network_public_ip_v4_services_parts
-            .next()
-            .expect("Fallback IPV4 service address not found")
-            .to_string();
-        let network_public_ip_v4_services = (
-            network_public_ip_v4_services_main,
-            network_public_ip_v4_services_fallback,
-        );
-
         let llm_model = env::var("LLM_MODEL")
             .expect("LLM_MODEL must be specified")
             .parse::<String>()
@@ -93,10 +72,8 @@ impl Config {
             server_port,
             server_request_timeout,
             machine_command_timeout,
-            network_public_ip_v4_services,
-            network_public_ip_v6_services: None,
             max_connections,
-            database_url,
+            database_url, // used for request history
             allowed_origin,
             max_age,
             //

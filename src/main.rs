@@ -3,7 +3,7 @@ use std::{convert::Infallible, io::Write, path::PathBuf};
 use actix_cors::Cors;
 use actix_web::web::Json;
 use actix_web::{http, middleware, web, App, HttpResponse, HttpServer, Responder};
-use llm::Model;
+use llm::{InferenceError, Model};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde::{Deserialize, Serialize};
 
@@ -16,11 +16,6 @@ mod utils;
 #[derive(Debug, Deserialize)]
 struct GenerateRequest {
     prompt: String,
-}
-
-#[derive(Debug, Serialize)]
-struct Response {
-    response: String,
 }
 
 #[cfg(feature = "server")]
@@ -37,7 +32,11 @@ pub async fn server_info_handler(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().body(result)
 }
 
-fn run_inference_session(config: &Config, model: &Box<dyn Model>, prompt: String) -> String {
+fn run_inference_session(
+    config: &Config,
+    model: &Box<dyn Model>,
+    prompt: String,
+) -> Result<String, InferenceError> {
     let mut result_tokens = String::new();
     let mut prompt_tokens = String::new();
     let mut inference_session = model.start_session(Default::default());
@@ -70,8 +69,8 @@ fn run_inference_session(config: &Config, model: &Box<dyn Model>, prompt: String
     );
 
     match inference_session_result {
-        Ok(_) => result_tokens,
-        Err(err) => format!("Error: {}", err),
+        Ok(_) => Ok(result_tokens),
+        Err(err) => Err(err),
     }
 }
 
@@ -79,7 +78,7 @@ pub async fn generate_handler(
     data: web::Data<AppState>,
     body: Json<GenerateRequest>,
 ) -> HttpResponse {
-    let result = run_inference_session(&data.config, &data.model, body.prompt.clone());
+    let result = run_inference_session(&data.config, &data.model, body.prompt.clone()).unwrap();
 
     HttpResponse::Ok().body(result)
 }
@@ -162,8 +161,11 @@ async fn main() -> std::io::Result<()> {
                     .max_age(config.max_age as usize),
             )
             .route("/", web::get().to(server_info_handler))
-            .service(web::scope("/api").route("/generate", web::post().to(generate_handler)))
-            .route("/health", web::get().to(health_handler))
+            .service(
+                web::scope("/api")
+                    .route("/generate", web::post().to(generate_handler))
+                    .route("/health", web::get().to(health_handler)),
+            )
     })
     .bind_openssl(complete_address, ssl_builder)?
     .run()
