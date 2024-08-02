@@ -148,6 +148,7 @@ Please ensure your code adheres to the project's coding standards and include te
 
 ## Improvements
 
+- [ ] Add a test suite covering server and utilities;
 - [ ] Add Docker support;
 - [ ] Add inference cancelling support;
 - [ ] Add database support for requests history;
