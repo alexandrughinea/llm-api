@@ -5,7 +5,7 @@ use actix_web::web::Json;
 use actix_web::{http, middleware, web, App, HttpResponse, HttpServer, Responder};
 use llm::{InferenceError, Model};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::config::Config;
 use crate::utils::match_model_architecture;
@@ -37,15 +37,15 @@ fn run_inference_session(
     model: &Box<dyn Model>,
     prompt: String,
 ) -> Result<String, InferenceError> {
-    let mut result_tokens = String::new();
-    let mut prompt_tokens = String::new();
+    let result_tokens = String::new();
+    let prompt_tokens = String::new();
     let mut inference_session = model.start_session(Default::default());
     let inference_session_result = inference_session.infer::<Infallible>(
         model.as_ref(),
         // Input:
         &mut rand::thread_rng(),
         &llm::InferenceRequest {
-            prompt: (&*prompt).into(),
+            prompt: &prompt,
             parameters: Option::from(&llm::InferenceParameters::default()),
             play_back_previous_tokens: false,
             maximum_token_count: Some(config.llm_inference_max_token_count),
